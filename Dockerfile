@@ -1,20 +1,18 @@
-# Sử dụng image Python gọn nhẹ
 FROM python:3.9-slim
 
-# Thiết lập thư mục làm việc trong container
 WORKDIR /app
 
-# Copy các file cần thiết vào container
+# Cài đặt thư viện ứng dụng và gdown để tải file từ Google Drive
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt gdown
+
+# Tải file recs.db trực tiếp từ Google Drive vào container trong lúc build
+# Thay YOUR_FILE_ID_HERE bằng ID lấy từ bước 1 (giữ nguyên cờ -O recs.db)
+RUN gdown --id 19FHJDD3fwfWuoYlFVB9fqYr2wHdzeTkG -O recs.db
+
+# Copy code FastAPI vào
 COPY main.py .
-COPY withhist_predictions.json .
-COPY predictions_without_history.json .
 
-# Cài đặt thư viện
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Expose port 8000
 EXPOSE 8000
 
-# Lệnh chạy API
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
