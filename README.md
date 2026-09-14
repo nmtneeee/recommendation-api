@@ -275,17 +275,15 @@ Deployment
 
 📁 Project Structure
 
+```text
 recommendation-api/
-│
-├── main.py
-├── convert_to_db.py
-├── index.html
-├── Dockerfile
-├── requirements.txt
-│
-├── .gitignore
-│
-└── recs.db                    # Generated database
+├── main.py                  # FastAPI application & embedded Web UI
+├── convert_to_db.py         # SQLite database creation script
+├── find_hits.py             # Inspection script for high hit-rate IDs
+├── Dockerfile               # Docker container configuration & DB fetch setup
+├── requirements.txt         # Python package dependencies
+├── .gitignore               # Ignored files list
+└── recs.db                  # Generated SQLite database file
 
 Large datasets and generated database files are excluded from the Git repository.
 
@@ -358,20 +356,10 @@ http://localhost:8000
 The API is deployed using Docker on Render.
 
 The deployment architecture separates the application source code from the large recommendation database. The generated SQLite database is therefore not stored directly in the Git repository.
-
-GitHub
-   │
-   ▼
-Application Source Code
-   │
-   ▼
-Docker Build
-   │
-   ▼
-Render
-   │
-   └──────► Recommendation Database
-
+```text
+GitHub (Source Code) ──────┐
+                           ├─► Docker Build (Render) ─► Live Web Application
+Google Drive (recs.db) ────┘
 ⸻
 
 🔍 Example Recommendation Analysis
@@ -387,7 +375,94 @@ A customer with a clear and repeated purchasing pattern can receive recommendati
 
 The report shows that good candidate generation can provide strong coverage of the ground truth, while the ranking model prioritizes products related to recent customer behavior.
 
-Worst Case
+Worst Case📁 Project Structure
+
+```text
+recommendation-api/
+├── main.py                  # FastAPI application & embedded Web UI
+├── convert_to_db.py         # SQLite database creation script
+├── find_hits.py             # Script for analyzing recommendation hits
+├── Dockerfile               # Docker container configuration & DB fetch setup
+├── requirements.txt         # Python package dependencies
+├── .gitignore               # Ignored files list
+└── recs.db                  # Generated locally; excluded from Git
+
+Large datasets and generated database files are excluded from the Git repository.
+
+⸻
+
+💻 Local Setup
+
+1. Clone the repository
+
+git clone https://github.com/nmtneeee/recommendation-api.git
+cd recommendation-api
+
+2. Create a virtual environment
+
+python -m venv venv
+source venv/bin/activate
+
+On Windows:
+
+venv\Scripts\activate
+
+3. Install dependencies
+
+pip install -r requirements.txt
+
+Additional dependencies may be required when rebuilding the database from Parquet data:
+
+pip install polars pyarrow
+
+4. Generate the SQLite database
+
+Place the required data files in the project directory and run:
+
+python convert_to_db.py
+
+This generates the recs.db database used by the API.
+
+5. Run the API
+
+uvicorn main:app --reload
+
+The API will be available at:
+
+http://127.0.0.1:8000
+
+Interactive API documentation:
+
+http://127.0.0.1:8000/docs
+
+⸻
+
+🐳 Docker
+
+Build the Docker image:
+
+docker build -t recommendation-api .
+
+Run the container:
+
+docker run -p 8000:8000 recommendation-api
+
+Then open:
+
+http://localhost:8000
+
+⸻
+
+☁️ Deployment
+
+The API is deployed using Docker on Render.
+
+The deployment architecture separates the application source code from the large recommendation database. The generated SQLite database is therefore stored separately from the Git repository.
+
+```text
+GitHub (Source Code) ──────┐
+                           ├─► Docker Build (Render) ─► Live Web Application
+Google Drive (recs.db) ────┘
 
 Performance becomes more difficult when:
 
@@ -400,18 +475,6 @@ These cases illustrate the difficulty of recommendation under sparse and diverse
 
 ⸻
 
-👥 Team
-
-CS116.Q11 — Group 13
-
-* Lương Quang Duy — 23520368
-* Trần Minh Nhất — 23521101
-* Dương Thái Ý Nhi — 23521106
-* Vũ Hiếu Thiên — 23521490
-
-University of Information Technology (UIT)
-
-⸻
 
 📚 Project Report
 
