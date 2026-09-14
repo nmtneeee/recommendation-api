@@ -28,7 +28,7 @@ HTML_CONTENT = """
             <div class="mt-6 flex flex-col md:flex-row gap-4 items-end">
                 <div class="flex-1 w-full">
                     <label class="block text-sm font-semibold text-slate-700 mb-1">Mã khách hàng (Customer ID)</label>
-                    <input type="text" id="cusId" value="92752" placeholder="Nhập Customer ID..." 
+                    <input type="text" id="cusId" value="6871738" placeholder="Nhập Customer ID..." 
                            class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
                 <div class="w-full md:w-48">
