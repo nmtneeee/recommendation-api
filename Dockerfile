@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt gdown
 
 # Tải file recs.db trực tiếp từ Google Drive vào container trong lúc build
 
-RUN gdown --id 18-ua_7zGgruV3mOx7yHSwOT4n2SfTQGP -O recs.db
+RUN gdown --id 1992oSjw-AMCjTjHKZnaaHzWuWCtKSWWf -O recs.db
 
 # Copy code FastAPI vào
 COPY main.py .
