@@ -2,22 +2,30 @@ import json
 import os
 import sqlite3
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 
 app = FastAPI(title="Recommendation System API")
 
-# Lấy đường dẫn tuyệt đối đến file index.html nằm cùng thư mục với main.py
+# Định vị file index.html
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INDEX_PATH = os.path.join(BASE_DIR, "index.html")
 
 
-@app.get("/", response_class=FileResponse)
+@app.get("/", response_class=HTMLResponse)
 def read_index():
-    if not os.path.exists(INDEX_PATH):
-        raise HTTPException(
-            status_code=500, detail="Không tìm thấy file index.html trên server"
+    # Tìm file index.html ở đường dẫn tuyệt đối hoặc tương đối
+    target_path = (
+        INDEX_PATH if os.path.exists(INDEX_PATH) else "index.html"
+    )
+
+    if not os.path.exists(target_path):
+        return HTMLResponse(
+            content=f"<h3>Lỗi: Không tìm thấy file index.html trên server!</h3><p>Danh sách file: {os.listdir('.')}</p>",
+            status_code=500,
         )
-    return FileResponse(INDEX_PATH)
+
+    with open(target_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
 
 
 @app.get("/recommend/{customer_id}")
