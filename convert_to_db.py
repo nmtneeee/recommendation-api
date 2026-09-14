@@ -1,5 +1,6 @@
 import json
 import pickle
+import re  
 import pandas as pd
 import sqlite3
 
@@ -40,7 +41,7 @@ cursor.executemany(
     "INSERT OR REPLACE INTO items VALUES (?, ?, ?, ?, ?)", items_records
 )
 
-# 2. BẢNG GROUND TRUTH (Đã sửa lỗi nạp DataFrame / Dict / Series)
+# 2. BẢNG GROUND TRUTH (Làm sạch Numpy Array & Chuỗi rác)
 print("2. Tạo bảng ground_truth...")
 cursor.execute(
     """
@@ -56,40 +57,39 @@ with open("final_groundtruth.pkl", "rb") as f:
 
 gt_records = []
 
+
+def clean_item_list(items_obj):
+    if isinstance(items_obj, str):
+        return re.findall(r"\b\d+\b", items_obj)
+    try:
+        flat = []
+        for x in items_obj:
+            if isinstance(x, str) and ("[" in x or " " in x):
+                flat.extend(re.findall(r"\b\d+\b", x))
+            else:
+                flat.append(str(x).strip())
+        return flat
+    except TypeError:
+        return [str(items_obj).strip()]
+
+
 if isinstance(raw_gt, dict):
     for cus_id, items in raw_gt.items():
-        item_list = (
-            [str(i).strip() for i in items]
-            if isinstance(items, (list, set, tuple))
-            else [str(items).strip()]
+        gt_records.append(
+            (str(cus_id).strip(), json.dumps(clean_item_list(items)))
         )
-        gt_records.append((str(cus_id).strip(), json.dumps(item_list)))
-
 elif isinstance(raw_gt, pd.Series):
     for cus_id, items in raw_gt.items():
-        item_list = (
-            [str(i).strip() for i in items]
-            if isinstance(items, (list, set, tuple))
-            else [str(items).strip()]
+        gt_records.append(
+            (str(cus_id).strip(), json.dumps(clean_item_list(items)))
         )
-        gt_records.append((str(cus_id).strip(), json.dumps(item_list)))
-
 elif isinstance(raw_gt, pd.DataFrame):
-    # Nếu là DataFrame, lặp qua từng DÒNG (iterrows) thay vì từng CỘT (items)
     cols = raw_gt.columns
-    cus_col = cols[0]
-    item_col = cols[1]
-
-    # Gom nhóm theo customer_id
-    grouped = raw_gt.groupby(cus_col)[item_col].apply(list)
+    grouped = raw_gt.groupby(cols[0])[cols[1]].apply(list)
     for cus_id, items in grouped.items():
-        flat_items = []
-        for it in items:
-            if isinstance(it, (list, set, tuple)):
-                flat_items.extend([str(x).strip() for x in it])
-            else:
-                flat_items.append(str(it).strip())
-        gt_records.append((str(cus_id).strip(), json.dumps(flat_items)))
+        gt_records.append(
+            (str(cus_id).strip(), json.dumps(clean_item_list(items)))
+        )
 
 cursor.executemany(
     "INSERT OR REPLACE INTO ground_truth VALUES (?, ?)", gt_records
@@ -131,6 +131,7 @@ def insert_recs(file_path, has_hist_flag):
 insert_recs("withhist_predictions.json", 1)
 insert_recs("predictions_without_history.json", 0)
 
+# 4. LƯU THẮNG VÀO DISK & ĐÓNG KẾT NỐI
 conn.commit()
 conn.close()
-print(" HOÀN THÀNH TẠO DATABASE CHI TIẾT!")
+print(" THÀNH CÔNG! ")
