@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
@@ -27,7 +28,7 @@ HTML_CONTENT = """
             <div class="mt-6 flex flex-col md:flex-row gap-4 items-end">
                 <div class="flex-1 w-full">
                     <label class="block text-sm font-semibold text-slate-700 mb-1">Mã khách hàng (Customer ID)</label>
-                    <input type="text" id="cusId" value="2099693" placeholder="Nhập Customer ID..." 
+                    <input type="text" id="cusId" value="92752" placeholder="Nhập Customer ID..." 
                            class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
                 <div class="w-full md:w-48">
@@ -65,7 +66,7 @@ HTML_CONTENT = """
         </div>
 
         <!-- Khung danh sách sản phẩm -->
-        <div id="loading" class="hidden text-center py-12 text-slate-500"> Đang tải dữ liệu gợi ý...</div>
+        <div id="loading" class="hidden text-center py-12 text-slate-500">⏳ Đang tải dữ liệu gợi ý...</div>
         <div id="error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl mb-6"></div>
         <div id="gridResults" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </div>
@@ -142,21 +143,39 @@ HTML_CONTENT = """
 """
 
 
+def extract_clean_ids(raw_data):
+    """Hàm bóc tách ID sản phẩm an toàn tuyệt đối từ DB"""
+    if not raw_data:
+        return []
+    if isinstance(raw_data, str):
+        return re.findall(r"\b\d+\b", raw_data)
+    try:
+        results = []
+        for x in raw_data:
+            results.extend(re.findall(r"\b\d+\b", str(x)))
+        return results
+    except Exception:
+        return []
+
+
 @app.get("/", response_class=HTMLResponse)
 def read_index():
     return HTMLResponse(content=HTML_CONTENT)
 
 
 @app.get("/recommend/{customer_id}")
-def get_recommendation(customer_id: str, use_history: bool = True):
-    has_hist = 1 if use_history else 0
+def get_recommendation(customer_id: str, use_history: str = "true"):
+    cid = str(customer_id).strip()
+    has_hist = 1 if str(use_history).lower() in ("true", "1") else 0
+
     conn = sqlite3.connect("recs.db")
     cursor = conn.cursor()
 
+    # 1. Lấy danh sách sản phẩm được gợi ý
     cursor.execute(
         "SELECT item_ids FROM recommendations WHERE customer_id = ? AND"
         " has_history = ?",
-        (customer_id, has_hist),
+        (cid, has_hist),
     )
     row = cursor.fetchone()
     if not row:
@@ -165,35 +184,44 @@ def get_recommendation(customer_id: str, use_history: bool = True):
             status_code=404, detail="Không tìm thấy Customer ID"
         )
 
-    rec_item_ids = json.loads(row[0])
+    raw_rec = json.loads(row[0]) if row[0] else []
+    rec_item_ids = extract_clean_ids(raw_rec)
 
+    # 2. Lấy danh sách sản phẩm thực tế (Ground Truth)
     cursor.execute(
-        "SELECT actual_items FROM ground_truth WHERE customer_id = ?",
-        (customer_id,),
+        "SELECT actual_items FROM ground_truth WHERE customer_id = ?", (cid,)
     )
     gt_row = cursor.fetchone()
-    actual_set = set(json.loads(gt_row[0])) if gt_row else set()
 
-    placeholders = ",".join(["?"] * len(rec_item_ids))
-    cursor.execute(
-        f"SELECT item_id, brand, category_l1, category_l2, price FROM items"
-        f" WHERE item_id IN ({placeholders})",
-        rec_item_ids,
-    )
-    item_rows = cursor.fetchall()
+    actual_set = set()
+    if gt_row and gt_row[0]:
+        actual_set = set(extract_clean_ids(gt_row[0]))
 
-    item_info_map = {
-        r[0]: {
-            "item_id": r[0],
-            "brand": r[1],
-            "category_l1": r[2],
-            "category_l2": r[3],
-            "price": r[4],
+    # 3. Lấy thông tin chi tiết sản phẩm từ bảng items
+    item_info_map = {}
+    if rec_item_ids:
+        placeholders = ",".join(["?"] * len(rec_item_ids))
+        cursor.execute(
+            f"SELECT item_id, brand, category_l1, category_l2, price FROM items"
+            f" WHERE item_id IN ({placeholders})",
+            rec_item_ids,
+        )
+        item_rows = cursor.fetchall()
+
+        item_info_map = {
+            str(r[0]).strip(): {
+                "item_id": str(r[0]).strip(),
+                "brand": r[1] if r[1] else "N/A",
+                "category_l1": r[2] if r[2] else "",
+                "category_l2": r[3] if r[3] else "",
+                "price": r[4] if r[4] is not None else 0.0,
+            }
+            for r in item_rows
         }
-        for r in item_rows
-    }
+
     conn.close()
 
+    # 4. So sánh HIT / MISS
     results = []
     for i_id in rec_item_ids:
         info = item_info_map.get(
@@ -211,4 +239,4 @@ def get_recommendation(customer_id: str, use_history: bool = True):
         info["status"] = "HIT" if is_hit else "MISS"
         results.append(info)
 
-    return {"customer_id": customer_id, "recommendations": results}
+    return {"customer_id": cid, "recommendations": results}
