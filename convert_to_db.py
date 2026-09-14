@@ -6,7 +6,7 @@ import sqlite3
 conn = sqlite3.connect("recs.db")
 cursor = conn.cursor()
 
-# 1. BẢNG ITEMS (Lưu thông tin sản phẩm, mỗi item_id chỉ 1 dòng)
+# 1. BẢNG ITEMS
 print("1. Tạo bảng items...")
 cursor.execute(
     """
@@ -25,7 +25,7 @@ items_records = []
 for _, row in items_df.iterrows():
     items_records.append(
         (
-            str(row["item_id"]),
+            str(row["item_id"]).strip(),
             str(row["brand"]) if pd.notna(row.get("brand")) else "N/A",
             str(row["category_l1"])
             if pd.notna(row.get("category_l1"))
@@ -40,7 +40,7 @@ cursor.executemany(
     "INSERT OR REPLACE INTO items VALUES (?, ?, ?, ?, ?)", items_records
 )
 
-# 2. BẢNG GROUND TRUTH (Lưu danh sách mua thực tế của customer)
+# 2. BẢNG GROUND TRUTH (Đã sửa lỗi nạp DataFrame / Dict / Series)
 print("2. Tạo bảng ground_truth...")
 cursor.execute(
     """
@@ -55,28 +55,48 @@ with open("final_groundtruth.pkl", "rb") as f:
     raw_gt = pickle.load(f)
 
 gt_records = []
+
 if isinstance(raw_gt, dict):
     for cus_id, items in raw_gt.items():
         item_list = (
-            [str(i) for i in items]
+            [str(i).strip() for i in items]
             if isinstance(items, (list, set, tuple))
-            else [str(items)]
+            else [str(items).strip()]
         )
-        gt_records.append((str(cus_id), json.dumps(item_list)))
-elif isinstance(raw_gt, (pd.DataFrame, pd.Series)):
+        gt_records.append((str(cus_id).strip(), json.dumps(item_list)))
+
+elif isinstance(raw_gt, pd.Series):
     for cus_id, items in raw_gt.items():
         item_list = (
-            [str(i) for i in items]
+            [str(i).strip() for i in items]
             if isinstance(items, (list, set, tuple))
-            else [str(items)]
+            else [str(items).strip()]
         )
-        gt_records.append((str(cus_id), json.dumps(item_list)))
+        gt_records.append((str(cus_id).strip(), json.dumps(item_list)))
+
+elif isinstance(raw_gt, pd.DataFrame):
+    # Nếu là DataFrame, lặp qua từng DÒNG (iterrows) thay vì từng CỘT (items)
+    cols = raw_gt.columns
+    cus_col = cols[0]
+    item_col = cols[1]
+
+    # Gom nhóm theo customer_id
+    grouped = raw_gt.groupby(cus_col)[item_col].apply(list)
+    for cus_id, items in grouped.items():
+        flat_items = []
+        for it in items:
+            if isinstance(it, (list, set, tuple)):
+                flat_items.extend([str(x).strip() for x in it])
+            else:
+                flat_items.append(str(it).strip())
+        gt_records.append((str(cus_id).strip(), json.dumps(flat_items)))
 
 cursor.executemany(
     "INSERT OR REPLACE INTO ground_truth VALUES (?, ?)", gt_records
 )
+print(f"   -> Đã chèn {len(gt_records)} khách hàng vào bảng ground_truth.")
 
-# 3. BẢNG RECOMMENDATIONS (Chỉ lưu 10 ID sản phẩm)
+# 3. BẢNG RECOMMENDATIONS
 print("3. Tạo bảng recommendations...")
 cursor.execute(
     """
@@ -96,7 +116,11 @@ def insert_recs(file_path, has_hist_flag):
         data = json.load(f)
 
     records = [
-        (str(cus_id), has_hist_flag, json.dumps([str(i) for i in items[:10]]))
+        (
+            str(cus_id).strip(),
+            has_hist_flag,
+            json.dumps([str(i).strip() for i in items[:10]]),
+        )
         for cus_id, items in data.items()
     ]
     cursor.executemany(
@@ -109,4 +133,4 @@ insert_recs("predictions_without_history.json", 0)
 
 conn.commit()
 conn.close()
-print(" THÀNH CÔNG! ")
+print(" HOÀN THÀNH TẠO DATABASE CHI TIẾT!")

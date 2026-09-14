@@ -27,7 +27,7 @@ HTML_CONTENT = """
             <div class="mt-6 flex flex-col md:flex-row gap-4 items-end">
                 <div class="flex-1 w-full">
                     <label class="block text-sm font-semibold text-slate-700 mb-1">Mã khách hàng (Customer ID)</label>
-                    <input type="text" id="cusId" value="17212" placeholder="Nhập Customer ID..." 
+                    <input type="text" id="cusId" value="2099693" placeholder="Nhập Customer ID..." 
                            class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
                 <div class="w-full md:w-48">
@@ -65,7 +65,7 @@ HTML_CONTENT = """
         </div>
 
         <!-- Khung danh sách sản phẩm -->
-        <div id="loading" class="hidden text-center py-12 text-slate-500">⏳ Đang tải dữ liệu gợi ý...</div>
+        <div id="loading" class="hidden text-center py-12 text-slate-500"> Đang tải dữ liệu gợi ý...</div>
         <div id="error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl mb-6"></div>
         <div id="gridResults" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </div>
